@@ -34,6 +34,9 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import { getCurrentAdminScope } from "@/lib/api";
+import { DayPicker } from "react-day-picker";
+import { format } from "date-fns";
+import "react-day-picker/style.css";
 
 /**
  * Tinted PNG icon — uses CSS mask-image so the provided black PNG silhouettes
@@ -519,7 +522,7 @@ function InlineDeliverySelect({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
-          className="flex items-center gap-2 rounded-md border border-black bg-white px-2 py-1 text-xs font-medium text-black w-full max-w-[140px] hover:bg-gray-50"
+          className="flex items-center gap-2 rounded-full border border-black bg-white px-3 py-1 text-xs font-medium text-black w-full max-w-[130px] hover:bg-gray-50"
         >
           <span className="flex-1 text-left truncate leading-tight">
             {assigned ? assignedName || "Assigned" : "Unassigned"}
@@ -554,10 +557,8 @@ function InlineDeliverySelect({
           ) : (
             filtered.map((p) => {
               const isSelected = assigned === p.id;
-              const hubs = [
-                ...(p.superHubNames ?? (p.superHubName ? [p.superHubName] : [])),
-                ...(p.subHubNames ?? (p.subHubName ? [p.subHubName] : [])),
-              ].filter(Boolean);
+              const superHubs = (p.superHubNames ?? (p.superHubName ? [p.superHubName] : [])).filter(Boolean);
+              const subHubs = (p.subHubNames ?? (p.subHubName ? [p.subHubName] : [])).filter(Boolean);
               return (
                 <button
                   key={p.id}
@@ -566,11 +567,18 @@ function InlineDeliverySelect({
                 >
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold text-black truncate">{p.name}</p>
-                    {p.phone && (
-                      <p className="text-[11px] text-black truncate">{p.phone}</p>
+                    {p.phone && <p className="text-[11px] text-gray-500 truncate">{p.phone}</p>}
+                    {superHubs.length > 0 && (
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <span className="text-[9px] font-bold text-blue-500 uppercase tracking-wide">Hub:</span>
+                        <span className="text-[10px] text-gray-600 truncate">{superHubs.join(", ")}</span>
+                      </div>
                     )}
-                    {hubs.length > 0 && (
-                      <p className="text-[11px] text-black truncate">{hubs[0]}</p>
+                    {subHubs.length > 0 && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-[9px] font-bold text-indigo-500 uppercase tracking-wide">Sub:</span>
+                        <span className="text-[10px] text-gray-600 truncate">{subHubs.join(", ")}</span>
+                      </div>
                     )}
                   </div>
                   {isSelected && <Check className="w-3.5 h-3.5 text-black flex-shrink-0 mt-0.5" />}
@@ -604,6 +612,10 @@ export default function Orders() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const [subHubFilter, setSubHubFilter] = useState("");
+  const [filterSubHubs, setFilterSubHubs] = useState<{ id: string; name: string }[]>([]);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const knownSubHubsRef = useRef<Map<string, { id: string; name: string }>>(new Map());
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -1260,15 +1272,26 @@ export default function Orders() {
       if (deliveryTypeFilter) params.set("deliveryType", deliveryTypeFilter);
       if (dateFrom) params.set("from", dateFrom);
       if (dateTo) params.set("to", dateTo);
+      if (subHubFilter) params.set("subHubId", subHubFilter);
 
       const data = await apiFetch(`/api/orders?${params}`);
-      setOrders(data.orders ?? []);
+      const loadedOrders = data.orders ?? [];
+      setOrders(loadedOrders);
       setTotal(data.total ?? 0);
       setPages(data.pages ?? 1);
+      // Accumulate unique sub-hubs from orders for the filter dropdown
+      let changed = false;
+      for (const o of loadedOrders) {
+        if (o.subHubId && !knownSubHubsRef.current.has(String(o.subHubId))) {
+          knownSubHubsRef.current.set(String(o.subHubId), { id: String(o.subHubId), name: o.subHubName ?? "Sub Hub" });
+          changed = true;
+        }
+      }
+      if (changed) setFilterSubHubs(Array.from(knownSubHubsRef.current.values()));
     } catch (err: any) {
       toast({ title: "Error loading orders", description: err.message, variant: "destructive" });
     } finally { setLoading(false); }
-  }, [search, sortField, sortDir, page, activeTab, statusFilter, deliveryTypeFilter, dateFrom, dateTo, toast]);
+  }, [search, sortField, sortDir, page, activeTab, statusFilter, deliveryTypeFilter, dateFrom, dateTo, subHubFilter, toast]);
 
   const loadStats = useCallback(async () => {
     try {
@@ -1283,7 +1306,7 @@ export default function Orders() {
   }, []);
 
   useEffect(() => { loadStats(); }, [loadStats]);
-  useEffect(() => { setPage(1); }, [activeTab, search, statusFilter, deliveryTypeFilter, dateFrom, dateTo, sortField, sortDir]);
+  useEffect(() => { setPage(1); }, [activeTab, search, statusFilter, deliveryTypeFilter, dateFrom, dateTo, sortField, sortDir, subHubFilter]);
   useEffect(() => { load(); }, [load]);
 
   const handleStatusUpdate = async () => {
@@ -1653,9 +1676,10 @@ export default function Orders() {
   const clearFilters = () => {
     setSearch(""); setStatusFilter(""); setDeliveryTypeFilter("");
     setDateFrom(""); setDateTo(""); setSortField("createdAt"); setSortDir("desc");
+    setSubHubFilter("");
   };
 
-  const hasFilters = !!(search || statusFilter || deliveryTypeFilter || dateFrom || dateTo);
+  const hasFilters = !!(search || statusFilter || deliveryTypeFilter || dateFrom || dateTo || subHubFilter);
 
   const totalAll = (statsTotals.total ?? 0) || (
     ACTIVE_STATUSES.reduce((s, k) => s + (statsData[k] ?? 0), 0) +
@@ -1684,7 +1708,7 @@ export default function Orders() {
     <div className="w-full bg-white">
       {headerSlot && createPortal(
         <>
-          <h1 className="text-lg font-bold text-[#162B4D] truncate flex-shrink-0">Orders</h1>
+          <h1 className="text-lg font-bold text-black truncate flex-shrink-0">Orders Management</h1>
           <div className="flex items-center flex-wrap gap-0 border-b border-transparent flex-1 min-w-0">
             {TABS.map(({ key, label, count }) => (
               <button
@@ -1726,114 +1750,137 @@ export default function Orders() {
       )}
 
       {!isCreatePage && (<>
-      {/* New Order button */}
-      <div className="flex items-center justify-end pb-1 border-b border-gray-200">
-        <Button size="sm" onClick={() => { resetCreateForm(); setLocation("/orders/new"); }} className="h-8 gap-1.5 bg-[#1A56DB] hover:bg-[#1447B4] text-white">
-          <Plus className="w-3.5 h-3.5" /> New Order
-        </Button>
-      </div>
 
       {/* Full-width content area (no card wrapper) */}
       <div className="bg-white">
 
-        {/* Status Tabs — hidden on Invoices tab */}
-        {activeTab !== "invoices" && <div className="flex items-center gap-1.5 py-2.5 overflow-x-auto scrollbar-none bg-white">
-          <button
-            onClick={() => setStatusFilter("")}
-            className="flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-semibold transition-all bg-[#162B4D] text-white shadow-sm"
-          >
-            All
-            <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-white/20 text-white">
-              {totalAll}
-            </span>
-          </button>
-          {ALL_STATUSES.map((s) => {
-            const cfg = STATUS_CONFIG[s];
-            const count = statsData[s] ?? 0;
-            const solidBg = SOLID_STATUS_BG[s] ?? "bg-gray-500";
-            return (
+        {/* Status pills + New Order button — same row */}
+        <div className="flex items-center justify-between gap-2 py-2">
+          {activeTab !== "invoices" ? (
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none flex-1">
               <button
-                key={s}
-                onClick={() => { setStatusFilter(s === statusFilter ? "" : s); setActiveTab("all"); }}
-                className={`flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-semibold transition-all ${solidBg} text-white shadow-sm`}
+                onClick={() => setStatusFilter("")}
+                className="flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-semibold transition-all bg-[#162B4D] text-white shadow-sm"
               >
-                {cfg.label}
-                <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-white/25 text-white">
-                  {count}
+                All
+                <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-white/20 text-white">
+                  {totalAll}
                 </span>
               </button>
-            );
-          })}
-        </div>}
+              {ALL_STATUSES.map((s) => {
+                const cfg = STATUS_CONFIG[s];
+                const count = statsData[s] ?? 0;
+                const solidBg = SOLID_STATUS_BG[s] ?? "bg-gray-500";
+                return (
+                  <button
+                    key={s}
+                    onClick={() => { setStatusFilter(s === statusFilter ? "" : s); setActiveTab("all"); }}
+                    className={`flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-semibold transition-all ${solidBg} text-white shadow-sm`}
+                  >
+                    {cfg.label}
+                    <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-white/25 text-white">
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex-1" />
+          )}
+          <button
+            onClick={() => { resetCreateForm(); setLocation("/orders/new"); }}
+            className="flex-shrink-0 flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-semibold bg-[#1A56DB] hover:bg-[#1447B4] text-white shadow-sm transition-colors"
+          >
+            <Plus className="w-3.5 h-3.5" /> New Order
+          </button>
+        </div>
 
         {/* Toolbar */}
-        <div className="py-3 flex flex-wrap gap-2.5 items-center bg-white">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-black" />
+        <div className="py-2 flex flex-wrap gap-2 items-center bg-white">
+          {/* Search — pill, reduced width */}
+          <div className="relative w-52">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-black pointer-events-none" />
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name, phone, area..."
-              className="pl-8 h-9 text-sm text-black placeholder:text-black/60"
+              placeholder="Search..."
+              className="pl-8 h-9 text-sm text-black placeholder:text-black/60 rounded-full"
             />
-            {search && <button onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-black hover:text-red-500"><X className="w-3.5 h-3.5" /></button>}
+            {search && <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-black hover:text-red-500"><X className="w-3.5 h-3.5" /></button>}
           </div>
 
-          <Select value={`${sortField}:${sortDir}`} onValueChange={(v) => { const [f, d] = v.split(":"); setSortField(f); setSortDir(d as any); }}>
-            <SelectTrigger className="h-9 w-44 text-sm gap-1 text-black">
-              <ArrowUpDown className="w-3.5 h-3.5 text-black" />
-              <SelectValue />
+          {/* Sub Hub filter */}
+          {filterSubHubs.length > 0 && (
+            <Select value={subHubFilter || "_all"} onValueChange={(v) => setSubHubFilter(v === "_all" ? "" : v)}>
+              <SelectTrigger className="h-9 w-36 text-sm text-black rounded-full border-gray-200">
+                <SelectValue placeholder="All Sub Hubs" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_all">All Sub Hubs</SelectItem>
+                {filterSubHubs.map((h) => (
+                  <SelectItem key={h.id} value={h.id}>{h.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+
+          {/* Status filter dropdown */}
+          <Select value={statusFilter || "_all"} onValueChange={(v) => { setStatusFilter(v === "_all" ? "" : v); }}>
+            <SelectTrigger className="h-9 w-36 text-sm text-black rounded-full border-gray-200">
+              <SelectValue placeholder="All Statuses" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="createdAt:desc">Newest First</SelectItem>
-              <SelectItem value="createdAt:asc">Oldest First</SelectItem>
-              <SelectItem value="customerName:asc">Name A–Z</SelectItem>
-              <SelectItem value="customerName:desc">Name Z–A</SelectItem>
-              <SelectItem value="status:asc">Status A–Z</SelectItem>
+              <SelectItem value="_all">All Statuses</SelectItem>
+              {ALL_STATUSES.map((s) => (
+                <SelectItem key={s} value={s}>{STATUS_CONFIG[s].label}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowFilters(!showFilters)}
-            className={`h-9 gap-1.5 ${showFilters ? "bg-blue-50 border-blue-200 text-[#1A56DB]" : "text-black"}`}
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            Filters {hasFilters && <span className="bg-[#1A56DB] text-white text-[10px] px-1.5 py-0.5 rounded-full font-bold">{[statusFilter, deliveryTypeFilter, dateFrom, dateTo].filter(Boolean).length}</span>}
-          </Button>
+          {/* Date range picker */}
+          <Popover open={showDatePicker} onOpenChange={setShowDatePicker}>
+            <PopoverTrigger asChild>
+              <button className={`flex-shrink-0 flex items-center gap-2 h-9 px-4 rounded-full border text-sm font-medium transition-colors ${dateFrom || dateTo ? "border-[#1A56DB] bg-blue-50 text-[#1A56DB]" : "border-gray-200 text-black hover:border-gray-300"}`}>
+                <Calendar className="w-3.5 h-3.5" />
+                {dateFrom && dateTo
+                  ? `${dateFrom} – ${dateTo}`
+                  : dateFrom
+                  ? dateFrom
+                  : "Date"}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="p-3 w-auto" align="start">
+              <DayPicker
+                mode="range"
+                selected={{
+                  from: dateFrom ? new Date(dateFrom + "T00:00:00") : undefined,
+                  to: dateTo ? new Date(dateTo + "T00:00:00") : undefined,
+                }}
+                onSelect={(range) => {
+                  setDateFrom(range?.from ? format(range.from, "yyyy-MM-dd") : "");
+                  setDateTo(range?.to ? format(range.to, "yyyy-MM-dd") : "");
+                  if (range?.to) setShowDatePicker(false);
+                }}
+              />
+              {(dateFrom || dateTo) && (
+                <button
+                  onClick={() => { setDateFrom(""); setDateTo(""); setShowDatePicker(false); }}
+                  className="mt-1 w-full text-xs text-red-500 hover:text-red-600 font-medium py-1 rounded hover:bg-red-50 transition-colors"
+                >
+                  Clear dates
+                </button>
+              )}
+            </PopoverContent>
+          </Popover>
 
+          {/* Clear all filters */}
           {hasFilters && (
-            <Button variant="ghost" size="sm" onClick={clearFilters} className="h-9 text-black hover:text-red-500 gap-1">
+            <button onClick={clearFilters} className="flex items-center gap-1 h-9 px-3 rounded-full border border-gray-200 text-sm text-black hover:border-red-300 hover:text-red-500 transition-colors">
               <X className="w-3.5 h-3.5" /> Clear
-            </Button>
+            </button>
           )}
         </div>
-
-        {/* Expandable Filter Row */}
-        {showFilters && (
-          <div className="pb-3 flex flex-wrap gap-3 bg-white pt-3">
-            <div className="flex flex-col gap-1">
-              <Label className="text-[10px] font-bold text-black uppercase tracking-wide">Delivery Type</Label>
-              <Select value={deliveryTypeFilter} onValueChange={(v) => setDeliveryTypeFilter(v === "_all" ? "" : v)}>
-                <SelectTrigger className="h-8 w-36 text-xs text-black"><SelectValue placeholder="All types" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="_all">All types</SelectItem>
-                  <SelectItem value="slot">Slot</SelectItem>
-                  <SelectItem value="instant">Instant</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label className="text-[10px] font-bold text-black uppercase tracking-wide">From Date</Label>
-              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 text-xs w-36 text-black" />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label className="text-[10px] font-bold text-black uppercase tracking-wide">To Date</Label>
-              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 text-xs w-36 text-black" />
-            </div>
-          </div>
-        )}
 
         {/* Results Count */}
         <div className="py-2 text-xs text-black">
