@@ -3,11 +3,19 @@ import { createPortal } from "react-dom";
 import { useParams } from "wouter";
 import {
   ArrowLeft, Plus, Edit2, Trash2, Search, X, Package, Tag, Ticket,
-  RefreshCw, Database, AlertCircle, CheckCircle, XCircle, Image,
+  Database, AlertCircle, CheckCircle, XCircle, Image,
   LayoutList, ShoppingBag, ChevronDown, ChevronUp, GripVertical,
   LayoutGrid, List, SlidersHorizontal, ArrowUpDown, Clock,
   Download, Upload, FilePen,
 } from "lucide-react";
+import recycleIcon from "@/assets/recycling-symbol.png";
+import iconMenuProducts from "@/assets/icon-menu-products.png";
+import iconMenuCategories from "@/assets/icon-menu-categories.png";
+import iconMenuCombos from "@/assets/icon-menu-combos.png";
+import iconMenuCoupons from "@/assets/icon-menu-coupons.png";
+import iconMenuBanners from "@/assets/icon-menu-banners.png";
+import iconMenuSections from "@/assets/icon-menu-sections.png";
+import iconMenuTimeslots from "@/assets/icon-menu-timeslots.png";
 import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
 import { Button } from "@/components/ui/button";
@@ -410,13 +418,13 @@ export default function SubHubMenuAdmin() {
   }, [subHubId, loadStats]);
 
   const statCards = [
-    { label: "Products", value: stats?.products ?? 0, icon: Package, color: "text-blue-600", bg: "bg-blue-50" },
-    { label: "Categories", value: stats?.categories ?? 0, icon: Tag, color: "text-purple-600", bg: "bg-purple-50" },
-    { label: "Combos", value: stats?.combos ?? 0, icon: ShoppingBag, color: "text-indigo-600", bg: "bg-indigo-50" },
-    { label: "Coupons", value: stats?.coupons ?? 0, icon: Ticket, color: "text-orange-600", bg: "bg-orange-50" },
-    { label: "Banners", value: stats?.carousels ?? 0, icon: Image, color: "text-pink-600", bg: "bg-pink-50" },
-    { label: "Sections", value: stats?.sections ?? 0, icon: LayoutList, color: "text-teal-600", bg: "bg-teal-50" },
-    { label: "Time Slots", value: stats?.timeslots ?? 0, icon: Clock, color: "text-cyan-600", bg: "bg-cyan-50" },
+    { label: "Products", value: stats?.products ?? 0, img: iconMenuProducts },
+    { label: "Categories", value: stats?.categories ?? 0, img: iconMenuCategories },
+    { label: "Combos", value: stats?.combos ?? 0, img: iconMenuCombos },
+    { label: "Coupons", value: stats?.coupons ?? 0, img: iconMenuCoupons },
+    { label: "Banners", value: stats?.carousels ?? 0, img: iconMenuBanners },
+    { label: "Sections", value: stats?.sections ?? 0, img: iconMenuSections },
+    { label: "Time Slots", value: stats?.timeslots ?? 0, img: iconMenuTimeslots },
   ];
 
   const headerSlot = document.getElementById("page-header-slot");
@@ -466,10 +474,23 @@ export default function SubHubMenuAdmin() {
           <div className="flex-1" />
           <button
             onClick={loadStats}
-            className="w-8 h-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:bg-gray-50 hover:text-[#162B4D] transition-colors flex-shrink-0"
+            className="flex-shrink-0 p-1.5 rounded hover:bg-gray-100 transition-colors"
             title="Refresh stats"
           >
-            <RefreshCw className="w-4 h-4" />
+            <span
+              className="block w-5 h-5"
+              style={{
+                backgroundColor: "#1A56DB",
+                WebkitMaskImage: `url(${recycleIcon})`,
+                maskImage: `url(${recycleIcon})`,
+                WebkitMaskRepeat: "no-repeat",
+                maskRepeat: "no-repeat",
+                WebkitMaskPosition: "center",
+                maskPosition: "center",
+                WebkitMaskSize: "contain",
+                maskSize: "contain",
+              }}
+            />
           </button>
         </div>,
         headerSlot
@@ -487,23 +508,22 @@ export default function SubHubMenuAdmin() {
 
       <div className="grid grid-cols-4 md:grid-cols-7 gap-3">
         {loadingStats
-          ? [1, 2, 3, 4, 5, 6, 7].map((i) => <Skeleton key={i} className="h-16 rounded-xl" />)
-          : statCards.map(({ label, value, icon: Icon, color, bg }) => (
+          ? [1, 2, 3, 4, 5, 6, 7].map((i) => <Skeleton key={i} className="h-24 rounded-xl" />)
+          : statCards.map(({ label, value, img }) => (
             <button
               key={label}
               onClick={() => setTab(TABS.find((t) => t.label === label)?.key ?? tab)}
-              className={`bg-white rounded-xl border shadow-sm px-3 py-2.5 flex flex-col gap-1 text-left transition-all hover:shadow-md ${tab === TABS.find((t) => t.label === label)?.key ? "border-[#1A56DB] ring-1 ring-[#1A56DB]/20" : "border-gray-100"}`}
+              className={`bg-white rounded-xl border shadow-sm px-3 py-3 flex flex-col gap-2 text-left transition-all hover:shadow-md ${tab === TABS.find((t) => t.label === label)?.key ? "border-[#1A56DB] ring-1 ring-[#1A56DB]/20" : "border-gray-100"}`}
+              style={{ fontFamily: "Poppins, sans-serif" }}
             >
-              <div className={`w-7 h-7 rounded-lg ${bg} flex items-center justify-center`}>
-                <Icon className={`w-3.5 h-3.5 ${color}`} />
-              </div>
-              <p className={`text-lg font-bold ${color} leading-none`}>{value}</p>
-              <p className="text-[10px] text-gray-400 font-medium">{label}</p>
+              <img src={img} alt={label} className="w-9 h-9 object-contain" />
+              <p className="text-2xl font-bold text-black leading-none">{value}</p>
+              <p className="text-sm font-semibold text-black">{label}</p>
             </button>
           ))}
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden" style={{ fontFamily: "Poppins, sans-serif" }}>
         <div className="p-5">
           {!statsError && tab === "products" && <ProductsTab subHubId={subHubId} onSetExcel={setExcelBar} />}
           {!statsError && tab === "categories" && <CategoriesTab subHubId={subHubId} onRefreshStats={loadStats} onSetExcel={setExcelBar} />}
@@ -936,74 +956,68 @@ function ProductsTab({ subHubId, onSetExcel }: { subHubId: string; onSetExcel: (
       ) : processed.length === 0 ? (
         <EmptyState icon={Package} message="No products found" sub="Try adjusting your search or filters" />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-gray-100">
+        <div className="overflow-x-auto rounded-lg border border-gray-100" style={{ fontFamily: "Poppins, sans-serif" }}>
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 text-left">
-                <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide min-w-[200px]">Product</th>
-                <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Category</th>
-                <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Price</th>
-                <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Weight / Unit</th>
-                <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Pieces / Serves</th>
-                <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide text-center">Stock</th>
-                <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide text-center">Recipes</th>
-                <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
-                <th className="px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase tracking-wide w-20">Actions</th>
+                <th className="px-5 py-3 text-sm font-bold text-black uppercase tracking-wide min-w-[220px]">Product</th>
+                <th className="px-5 py-3 text-sm font-bold text-black uppercase tracking-wide">Category</th>
+                <th className="px-5 py-3 text-sm font-bold text-black uppercase tracking-wide">Price</th>
+                <th className="px-5 py-3 text-sm font-bold text-black uppercase tracking-wide">Weight / Unit</th>
+                <th className="px-5 py-3 text-sm font-bold text-black uppercase tracking-wide">Pieces / Serves</th>
+                <th className="px-5 py-3 text-sm font-bold text-black uppercase tracking-wide text-center">Stock</th>
+                <th className="px-5 py-3 text-sm font-bold text-black uppercase tracking-wide text-center">Recipes</th>
+                <th className="px-5 py-3 text-sm font-bold text-black uppercase tracking-wide">Status</th>
+                <th className="px-5 py-3 text-sm font-bold text-black uppercase tracking-wide w-20">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="divide-y divide-gray-100">
               {pagedProducts.pageItems.map((p) => (
-                <tr key={String(p._id)} className="hover:bg-gray-50/50 transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="flex items-start gap-2.5">
-                      <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
-                        <Package className="w-4 h-4 text-blue-300" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-semibold text-[#162B4D] text-sm leading-tight">{p.name}</p>
-                        {p.description && <p className="text-xs text-gray-400 mt-0.5 leading-tight line-clamp-1">{p.description}</p>}
-                      </div>
+                <tr key={String(p._id)} className="hover:bg-gray-50/60 transition-colors">
+                  <td className="px-5 py-4">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-black text-base leading-tight">{p.name}</p>
+                      {p.description && <p className="text-sm text-black mt-0.5 leading-tight line-clamp-1">{p.description}</p>}
                     </div>
                   </td>
-                  <td className="px-4 py-3">
-                    <p className="text-xs font-medium text-gray-600">{p.category || "—"}</p>
-                    {p.subCategory && <p className="text-[10px] text-gray-400 mt-0.5">{p.subCategory}</p>}
+                  <td className="px-5 py-4">
+                    <p className="text-sm font-semibold text-black">{p.category || "—"}</p>
                   </td>
-                  <td className="px-4 py-3">
-                    <p className="font-bold text-[#162B4D] text-sm">₹{p.price}</p>
+                  <td className="px-5 py-4">
+                    <p className="font-bold text-black text-base">₹{p.price}</p>
                     {p.originalPrice > p.price && (
-                      <p className="text-[10px] text-gray-400">
+                      <p className="text-sm text-black">
                         <span className="line-through">₹{p.originalPrice}</span>
                         <span className="ml-1 text-green-600 font-semibold">{p.discountPct}% off</span>
                       </p>
                     )}
                   </td>
-                  <td className="px-4 py-3">
-                    <p className="text-xs text-gray-600 font-medium">{p.unit || "—"}</p>
+                  <td className="px-5 py-4">
+                    <p className="text-sm text-black font-medium">{p.unit || "—"}</p>
                   </td>
-                  <td className="px-4 py-3">
-                    <p className="text-xs text-gray-600">{p.pieces || "—"}</p>
-                    {p.serves && <p className="text-[10px] text-gray-400">{p.serves}</p>}
+                  <td className="px-5 py-4">
+                    <p className="text-sm text-black font-medium">{p.pieces || "—"}</p>
+                    {p.serves && <p className="text-sm text-black">{p.serves}</p>}
                   </td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-5 py-4 text-center">
                     <div className="flex flex-col items-center gap-0.5">
-                      <span className={`text-xs font-bold ${(p.quantity ?? 0) === 0 ? "text-red-500" : (p.lowStockThreshold > 0 && (p.quantity ?? 0) <= p.lowStockThreshold) ? "text-amber-500" : "text-[#162B4D]"}`}>
+                      <span className={`text-base font-bold ${(p.quantity ?? 0) === 0 ? "text-red-500" : (p.lowStockThreshold > 0 && (p.quantity ?? 0) <= p.lowStockThreshold) ? "text-amber-500" : "text-black"}`}>
                         {p.quantity ?? 0}
                       </span>
                       {p.lowStockThreshold > 0 && (p.quantity ?? 0) <= p.lowStockThreshold && (
-                        <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-1 py-0.5 rounded-full leading-none whitespace-nowrap">
-                          <AlertCircle className="w-2.5 h-2.5" /> Low Stock
+                        <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full leading-none whitespace-nowrap">
+                          <AlertCircle className="w-3 h-3" /> Low Stock
                         </span>
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-5 py-4 text-center">
                     {Array.isArray(p.recipes) && p.recipes.length > 0
-                      ? <span className="inline-flex items-center gap-1 text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full font-semibold">{p.recipes.length} recipes</span>
-                      : <span className="text-gray-300 text-xs">—</span>}
+                      ? <span className="inline-flex items-center gap-1 text-sm text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full font-semibold">{p.recipes.length} recipes</span>
+                      : <span className="text-black text-sm">—</span>}
                   </td>
-                  <td className="px-4 py-3">{statusBadge(p)}</td>
-                  <td className="px-4 py-3"><ActionButtons onEdit={() => { setEditing(p); setModalOpen(true); }} onDelete={() => setDeleteId(String(p._id))} /></td>
+                  <td className="px-5 py-4">{statusBadge(p)}</td>
+                  <td className="px-5 py-4"><ActionButtons onEdit={() => { setEditing(p); setModalOpen(true); }} onDelete={() => setDeleteId(String(p._id))} /></td>
                 </tr>
               ))}
             </tbody>
