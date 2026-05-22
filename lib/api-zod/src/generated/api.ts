@@ -96,7 +96,7 @@ export const GetSuperHubResponse = zod.object({
       superHubName: zod.string(),
       name: zod.string(),
       location: zod.string(),
-      pincodes: zod.array(zod.string()),
+      pincodes: zod.array(zod.object({ pincode: zod.string(), charge: zod.number(), timeDelay: zod.number() })),
       status: zod.enum(["Active", "Inactive"]),
       createdAt: zod.coerce.date(),
     }),
@@ -174,7 +174,7 @@ export const GetSubHubsBySuperHubResponse = zod.object({
       superHubName: zod.string(),
       name: zod.string(),
       location: zod.string(),
-      pincodes: zod.array(zod.string()),
+      pincodes: zod.array(zod.object({ pincode: zod.string(), charge: zod.number(), timeDelay: zod.number() })),
       status: zod.enum(["Active", "Inactive"]),
       createdAt: zod.coerce.date(),
     }),
@@ -192,7 +192,7 @@ export const CreateSubHubParams = zod.object({
 export const CreateSubHubBody = zod.object({
   name: zod.string(),
   location: zod.string(),
-  pincodes: zod.array(zod.string()).optional(),
+  pincodes: zod.array(zod.object({ pincode: zod.string(), charge: zod.number(), timeDelay: zod.number() })).optional(),
   status: zod.enum(["Active", "Inactive"]).optional(),
 });
 
@@ -206,7 +206,7 @@ export const UpdateSubHubParams = zod.object({
 export const UpdateSubHubBody = zod.object({
   name: zod.string().optional(),
   location: zod.string().optional(),
-  pincodes: zod.array(zod.string()).optional(),
+  pincodes: zod.array(zod.object({ pincode: zod.string(), charge: zod.number(), timeDelay: zod.number() })).optional(),
   status: zod.enum(["Active", "Inactive"]).optional(),
 });
 
@@ -217,7 +217,7 @@ export const UpdateSubHubResponse = zod.object({
     superHubName: zod.string(),
     name: zod.string(),
     location: zod.string(),
-    pincodes: zod.array(zod.string()),
+    pincodes: zod.array(zod.object({ pincode: zod.string(), charge: zod.number(), timeDelay: zod.number() })),
     status: zod.enum(["Active", "Inactive"]),
     createdAt: zod.coerce.date(),
   }),
@@ -248,7 +248,7 @@ export const ToggleSubHubStatusResponse = zod.object({
     superHubName: zod.string(),
     name: zod.string(),
     location: zod.string(),
-    pincodes: zod.array(zod.string()),
+    pincodes: zod.array(zod.object({ pincode: zod.string(), charge: zod.number(), timeDelay: zod.number() })),
     status: zod.enum(["Active", "Inactive"]),
     createdAt: zod.coerce.date(),
   }),

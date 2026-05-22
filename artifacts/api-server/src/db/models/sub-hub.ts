@@ -6,7 +6,16 @@ const subHubSchema = new mongoose.Schema(
     name: { type: String, required: true },
     location: { type: String, default: "" },
     imageUrl: { type: String, default: "" },
-    pincodes: { type: [String], default: [] },
+    pincodes: {
+      type: [
+        {
+          pincode: { type: String, required: true },
+          charge: { type: Number, default: 0 },
+          timeDelay: { type: Number, default: 0 },
+        },
+      ],
+      default: [],
+    },
     status: { type: String, default: "Active" },
     dbName: { type: String, default: "" },
   },
