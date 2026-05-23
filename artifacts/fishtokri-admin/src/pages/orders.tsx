@@ -773,6 +773,9 @@ export default function Orders() {
   const [paymentEntries, setPaymentEntries] = useState<PaymentEntry[]>([]);
   const [mainPaymentMode, setMainPaymentMode] = useState<"upi" | "cash">("cash");
   const [useWallet, setUseWallet] = useState(false);
+  // When populating from an existing order, skip the payment-recompute effect once
+  // so the saved payment entries aren't overwritten by the derived logic.
+  const skipPaymentRecomputeRef = useRef(false);
 
   const resetCreateForm = useCallback(() => {
     setCustomerMode("existing");
@@ -1068,6 +1071,11 @@ export default function Orders() {
 
   // Recompute paymentStatus + paymentEntries whenever the user changes main mode, wallet toggle, or total
   useEffect(() => {
+    // Skip once when we've just loaded an existing order — its saved entries take priority.
+    if (skipPaymentRecomputeRef.current) {
+      skipPaymentRecomputeRef.current = false;
+      return;
+    }
     const walletBal = Number(chosenCustomer?.walletBalance) || 0;
     const walletApplied = useWallet && walletBal > 0 ? Math.min(walletBal, newOrderTotal) : 0;
     const remaining = Math.max(0, newOrderTotal - walletApplied);
@@ -1713,6 +1721,17 @@ export default function Orders() {
       amount: String(p.amount ?? ""),
       reference: p.reference ?? "",
     })));
+    // Restore wallet toggle + main payment mode from saved payments
+    const walletEntry = pays.find((p: any) => String(p.mode || "").toLowerCase() === "wallet");
+    const nonWalletEntry = pays.find((p: any) => String(p.mode || "").toLowerCase() !== "wallet");
+    const hadWallet = !!walletEntry;
+    if (hadWallet) {
+      const nonWalletMode = nonWalletEntry ? String(nonWalletEntry.mode || "").toLowerCase() : "cash";
+      setMainPaymentMode((nonWalletMode === "upi" ? "upi" : "cash") as "upi" | "cash");
+    }
+    // Set the skip-ref BEFORE setUseWallet so the effect that fires won't overwrite entries
+    skipPaymentRecomputeRef.current = true;
+    setUseWallet(hadWallet);
     // Schedule
     setOrderScheduleType(o.scheduleType === "instant" ? "instant" : "slot");
     if (o.deliveryDate) setOrderDate(String(o.deliveryDate).slice(0, 10));
@@ -3169,9 +3188,11 @@ export default function Orders() {
                     const subtotal = Number(selectedOrder.subtotal) > 0 ? Number(selectedOrder.subtotal) : orderTotal(selectedOrder.items);
                     const discount = Number(selectedOrder.discount) || 0;
                     const slot = Number(selectedOrder.slotCharge) || 0;
-                    const delivery = Number(selectedOrder.deliveryCharge) || 0;
                     const instant = Number(selectedOrder.instantDeliveryCharge) || 0;
                     const grand = effectiveOrderTotal(selectedOrder);
+                    // Use stored deliveryCharge; if absent, infer from the gap in the total
+                    const storedDelivery = Number(selectedOrder.deliveryCharge) || 0;
+                    const delivery = storedDelivery || Math.max(0, grand - Math.max(0, subtotal - discount + slot + instant));
                     const pays: any[] = Array.isArray(selectedOrder.payments) ? selectedOrder.payments : [];
                     const walletPay = pays.find((p: any) => String(p?.mode || "").toLowerCase() === "wallet");
                     const walletUsed = walletPay ? Number(walletPay.amount) || 0 : 0;
