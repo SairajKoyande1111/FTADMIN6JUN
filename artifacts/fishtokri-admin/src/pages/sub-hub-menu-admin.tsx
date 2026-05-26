@@ -3877,11 +3877,11 @@ function TimeSlotsTab({ subHubId, onSetExcel }: { subHubId: string; onSetExcel: 
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="font-semibold text-[#162B4D] text-sm">{s.label}</p>
+                          <p className="font-semibold text-[#162B4D] text-sm">{displayTime(s.startTime)} – {displayTime(s.endTime)}</p>
                           {s.isInstant && <span className="text-[10px] bg-orange-50 text-orange-600 font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide">Instant</span>}
                           <StatusBadge active={s.isActive !== false} />
                         </div>
-                        <p className="text-xs text-gray-400">{s.startTime} – {s.endTime}{s.extraCharge > 0 ? ` · +₹${s.extraCharge} extra` : ""}</p>
+                        <p className="text-xs text-gray-400">{displayTime(s.startTime)} – {displayTime(s.endTime)}{s.extraCharge > 0 ? ` · +₹${s.extraCharge} extra` : ""}</p>
                       </div>
                       <span className="text-xs font-bold text-gray-400">#{s.sortOrder ?? 0}</span>
                       <ActionButtons onEdit={() => { setEditing(s); setModalOpen(true); }} onDelete={() => setDeleteId(String(s._id))} />
@@ -3901,11 +3901,11 @@ function TimeSlotsTab({ subHubId, onSetExcel }: { subHubId: string; onSetExcel: 
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-semibold text-[#162B4D] text-sm">{s.label}</p>
+                  <p className="font-semibold text-[#162B4D] text-sm">{displayTime(s.startTime)} – {displayTime(s.endTime)}</p>
                   {s.isInstant && <span className="text-[10px] bg-orange-50 text-orange-600 font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide">Instant</span>}
                   <StatusBadge active={s.isActive !== false} />
                 </div>
-                <p className="text-xs text-gray-400">{s.startTime} – {s.endTime}{s.extraCharge > 0 ? ` · +₹${s.extraCharge} extra` : ""}</p>
+                <p className="text-xs text-gray-400">{displayTime(s.startTime)} – {displayTime(s.endTime)}{s.extraCharge > 0 ? ` · +₹${s.extraCharge} extra` : ""}</p>
               </div>
               <span className="text-xs text-gray-300 font-mono hidden sm:block">#{s.sortOrder ?? 0}</span>
               <ActionButtons onEdit={() => { setEditing(s); setModalOpen(true); }} onDelete={() => setDeleteId(String(s._id))} />
@@ -3928,9 +3928,15 @@ function TimeSlotsTab({ subHubId, onSetExcel }: { subHubId: string; onSetExcel: 
   );
 }
 
-function parse12h(time24: string): { h: number; m: number; ampm: "AM" | "PM" } {
-  if (!time24) return { h: 12, m: 0, ampm: "AM" };
-  const [hStr, mStr] = time24.split(":");
+function parse12h(time: string): { h: number; m: number; ampm: "AM" | "PM" } {
+  if (!time) return { h: 12, m: 0, ampm: "AM" };
+  // Already in 12h format: "09:30 PM" or "9:30 am"
+  const match = time.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (match) {
+    return { h: parseInt(match[1], 10), m: parseInt(match[2], 10), ampm: match[3].toUpperCase() as "AM" | "PM" };
+  }
+  // Legacy 24h format: "21:30"
+  const [hStr, mStr] = time.split(":");
   let h = parseInt(hStr, 10) || 0;
   const m = parseInt(mStr, 10) || 0;
   const ampm: "AM" | "PM" = h >= 12 ? "PM" : "AM";
@@ -3939,22 +3945,25 @@ function parse12h(time24: string): { h: number; m: number; ampm: "AM" | "PM" } {
   return { h, m, ampm };
 }
 
-function format24h(h: number, m: number, ampm: "AM" | "PM"): string {
-  let hour = h;
-  if (ampm === "AM" && h === 12) hour = 0;
-  else if (ampm === "PM" && h !== 12) hour = h + 12;
-  return `${String(hour).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+function format12h(h: number, m: number, ampm: "AM" | "PM"): string {
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")} ${ampm}`;
+}
+
+function displayTime(t: string): string {
+  if (!t) return "--";
+  const { h, m, ampm } = parse12h(t);
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")} ${ampm}`;
 }
 
 function TimePickerField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   const { h, m, ampm } = parse12h(value);
   const [open, setOpen] = useState(false);
 
-  const setH = (newH: number) => onChange(format24h(newH, m, ampm));
-  const setM = (newM: number) => onChange(format24h(h, newM, ampm));
-  const setAmpm = (newAmpm: "AM" | "PM") => onChange(format24h(h, m, newAmpm));
+  const setH = (newH: number) => onChange(format12h(newH, m, ampm));
+  const setM = (newM: number) => onChange(format12h(h, newM, ampm));
+  const setAmpm = (newAmpm: "AM" | "PM") => onChange(format12h(h, m, newAmpm));
 
-  const displayTime = value
+  const timeLabel = value
     ? `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")} ${ampm}`
     : "-- : -- --";
 
@@ -3971,7 +3980,7 @@ function TimePickerField({ label, value, onChange }: { label: string; value: str
             className="flex items-center gap-2 w-full h-9 px-3 rounded-md border border-input bg-white text-sm font-medium text-[#162B4D] hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-[#1A56DB]/30"
           >
             <Clock className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-            <span className={value ? "text-[#162B4D]" : "text-gray-400"}>{displayTime}</span>
+            <span className={value ? "text-[#162B4D]" : "text-gray-400"}>{timeLabel}</span>
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-64 p-3 space-y-3" align="start" sideOffset={4}>
@@ -4054,7 +4063,8 @@ function TimeslotModal({ isOpen, onClose, timeslot, subHubId, onSaved, nextOrder
     const soNum = Number(sortOrder) || 0;
     const dup = allItems.some((x: any) => (x.sortOrder ?? 0) === soNum && String(x._id) !== String(timeslot?._id));
     if (dup) { toast({ title: "Duplicate order number", description: `Sort order ${soNum} is already used by another time slot.`, variant: "destructive" }); setSaving(false); return; }
-    const payload = { startTime, endTime, isActive, sortOrder: soNum };
+    const label = `${startTime} - ${endTime}`;
+    const payload = { startTime, endTime, label, isActive, sortOrder: soNum };
     try {
       if (isEditing) { await apiFetch(`/api/sub-hubs/${subHubId}/menu/timeslots/${timeslot._id}`, { method: "PUT", body: JSON.stringify(payload) }); toast({ title: "Time slot updated" }); }
       else { await apiFetch(`/api/sub-hubs/${subHubId}/menu/timeslots`, { method: "POST", body: JSON.stringify(payload) }); toast({ title: "Time slot added" }); }
