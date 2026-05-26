@@ -766,9 +766,10 @@ async function expandOrderItems(
 
     let resolved = false;
 
-    // ── Path A: productId-based lookup ──────────────────────────────────────
-    if (it.productId) {
-      const pid = toId(String(it.productId));
+    // ── Path A: productId-based lookup (also accepts `id` field used by some customer apps) ──
+    const rawId = (it as any).productId ?? (it as any).id ?? null;
+    if (rawId) {
+      const pid = toId(String(rawId));
       if (pid) {
         const isRealProduct = await productsCol.findOne({ _id: pid }, { projection: { _id: 1 } });
         if (isRealProduct) {
@@ -831,9 +832,16 @@ async function applyDelta(order: OrderForSync, direction: "deduct" | "restore"):
     logger.warn({ orderId: String(order._id) }, "applyDelta: skipped — no subHubId on order");
     return 0;
   }
-  const sub = await SubHub.findById(order.subHubId);
+
+  // Resolve sub-hub: first try by ObjectId (handles both string and BSON ObjectId),
+  // then fall back to name match (handles customer-app orders that store the hub name instead of ID).
+  let sub = await SubHub.findById(order.subHubId).catch(() => null);
   if (!sub) {
-    logger.warn({ orderId: String(order._id), subHubId: order.subHubId }, "applyDelta: skipped — subHub not found");
+    const nameStr = String(order.subHubId).trim();
+    sub = await SubHub.findOne({ name: { $regex: `^${nameStr.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, $options: "i" } }).catch(() => null);
+  }
+  if (!sub) {
+    logger.warn({ orderId: String(order._id), subHubId: order.subHubId }, "applyDelta: skipped — subHub not found by id or name");
     return 0;
   }
   if (!sub.dbName) {
@@ -1005,6 +1013,27 @@ export async function applyOrderInventoryOnCreate(order: OrderForSync) {
   if (!orderShouldDeduct(order)) return false;
   const deducted = await applyDelta(order, "deduct");
   return deducted > 0;
+}
+
+/**
+ * Background job: independently fetches all active orders missing inventory
+ * deduction and processes them. Safe to call on a recurring interval without
+ * an HTTP request context — it owns its own DB connection.
+ */
+export async function runInventoryBackgroundDeduction(): Promise<void> {
+  try {
+    const conn = await getSubHubDbConnection("orders");
+    const undeducted = await conn.db.collection("orders")
+      .find({ status: { $in: [...ACTIVE_STATUSES] }, inventoryDeducted: { $ne: true } })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .toArray();
+    if (undeducted.length === 0) return;
+    logger.info({ count: undeducted.length }, "runInventoryBackgroundDeduction: processing undeducted orders");
+    await autoDeductUndedcutedOrders(conn.db, undeducted as any[]);
+  } catch (err) {
+    logger.error({ err }, "runInventoryBackgroundDeduction: failed");
+  }
 }
 
 export async function applyOrderInventoryOnDelete(order: OrderForSync, wasDeducted: boolean) {
