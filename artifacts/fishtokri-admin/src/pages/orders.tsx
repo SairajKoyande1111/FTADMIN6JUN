@@ -1378,8 +1378,8 @@ export default function Orders() {
     return "";
   }, [activeTab, statusFilter]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const params = new URLSearchParams({
         q: search,
@@ -1435,7 +1435,7 @@ export default function Orders() {
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    const id = setInterval(() => { load(); loadStats(); }, 5000);
+    const id = setInterval(() => { load(true); loadStats(); }, 5000);
     return () => clearInterval(id);
   }, [load, loadStats]);
 

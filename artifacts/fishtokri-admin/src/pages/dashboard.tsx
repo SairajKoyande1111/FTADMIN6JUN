@@ -133,8 +133,8 @@ export default function Dashboard() {
   const [deliveryPersons, setDeliveryPersons] = useState<{ total: number }>({ total: 0 });
   const [extraLoading, setExtraLoading]       = useState(true);
 
-  const loadExtra = useCallback(async () => {
-    setExtraLoading(true);
+  const loadExtra = useCallback(async (silent = false) => {
+    if (!silent) setExtraLoading(true);
     try {
       const [oStats, oRecent, cust, vend, dp] = await Promise.allSettled([
         apiFetch("/api/orders/stats"),
@@ -154,7 +154,7 @@ export default function Dashboard() {
   useEffect(() => { loadExtra(); }, [loadExtra]);
 
   useEffect(() => {
-    const id = setInterval(() => { loadExtra(); refetchStats(); refetchHubs(); }, 5000);
+    const id = setInterval(() => { loadExtra(true); refetchStats(); refetchHubs(); }, 5000);
     return () => clearInterval(id);
   }, [loadExtra, refetchStats, refetchHubs]);
 
