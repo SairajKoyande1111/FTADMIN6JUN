@@ -2664,12 +2664,6 @@ function ProductModal({ isOpen, onClose, product, subHubId, categories, onSaved 
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="flex items-end pb-0.5">
-                  <div className="flex items-center justify-between gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100 h-9 px-4">
-                    <Label className="text-sm text-gray-600">Archived</Label>
-                    <Switch checked={isArchived} onCheckedChange={setIsArchived} className="data-[state=checked]:bg-red-500" />
-                  </div>
-                </div>
               </div>
             </div>
           </section>
