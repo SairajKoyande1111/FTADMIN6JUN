@@ -3184,7 +3184,7 @@ function CouponModal({ isOpen, onClose, coupon, subHubId, onSaved }: any) {
   const { toast } = useToast();
   const isEditing = !!coupon;
   const [code, setCode] = useState(""); const [title, setTitle] = useState("");
-  const [description, setDescription] = useState(""); const [color, setColor] = useState("");
+  const [description, setDescription] = useState("");
   const [type, setType] = useState("percentage");
   const [discountValue, setDiscountValue] = useState(""); const [minOrderAmount, setMinOrderAmount] = useState("");
   const [maxUsage, setMaxUsage] = useState(""); const [isFirstTimeOnly, setIsFirstTimeOnly] = useState(false);
@@ -3203,7 +3203,7 @@ function CouponModal({ isOpen, onClose, coupon, subHubId, onSaved }: any) {
     apiFetch(`/api/sub-hubs/${subHubId}/menu/categories`).then((d) => setAvailableCategories(d.categories ?? [])).catch(() => {});
     apiFetch(`/api/sub-hubs/${subHubId}/menu/products`).then((d) => setAvailableProducts(d.products ?? [])).catch(() => {});
     if (coupon) {
-      setCode(coupon.code ?? ""); setTitle(coupon.title ?? ""); setDescription(coupon.description ?? ""); setColor(coupon.color ?? "");
+      setCode(coupon.code ?? ""); setTitle(coupon.title ?? ""); setDescription(coupon.description ?? "");
       setType(coupon.type ?? "percentage"); setDiscountValue(String(coupon.discountValue ?? ""));
       setMinOrderAmount(String(coupon.minOrderAmount ?? "")); setMaxUsage(coupon.maxUsage ? String(coupon.maxUsage) : "");
       setIsFirstTimeOnly(coupon.isFirstTimeOnly === true); setIsActive(coupon.isActive !== false);
@@ -3211,7 +3211,7 @@ function CouponModal({ isOpen, onClose, coupon, subHubId, onSaved }: any) {
       setSelectedCategoryIds(Array.isArray(coupon.applicableCategories) ? coupon.applicableCategories : []);
       setSelectedProductIds(Array.isArray(coupon.applicableProducts) ? coupon.applicableProducts : []);
     } else {
-      setCode(""); setTitle(""); setDescription(""); setColor(""); setType("percentage");
+      setCode(""); setTitle(""); setDescription(""); setType("percentage");
       setDiscountValue(""); setMinOrderAmount(""); setMaxUsage(""); setIsFirstTimeOnly(false);
       setIsActive(true); setExpiresAt(""); setSelectedCategoryIds([]); setSelectedProductIds([]);
     }
@@ -3249,7 +3249,7 @@ function CouponModal({ isOpen, onClose, coupon, subHubId, onSaved }: any) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault(); setSaving(true);
     const payload: any = {
-      code, title, description, color, type,
+      code, title, description, type,
       discountValue: Number(discountValue) || 0, minOrderAmount: Number(minOrderAmount) || 0,
       applicableCategories: selectedCategoryIds,
       applicableProducts: selectedProductIds,

@@ -389,7 +389,7 @@ router.post("/coupons", async (req, res) => {
   try {
     const ctx = await getSubHubDb(req.params.id, res, req as ScopedRequest);
     if (!ctx) return;
-    const { code, title, description, type, discountValue, minOrderAmount, maxUsage, isFirstTimeOnly, applicableCategories, applicableProducts, color, isActive, expiresAt } = req.body;
+    const { code, title, description, type, discountValue, minOrderAmount, maxUsage, isFirstTimeOnly, applicableCategories, applicableProducts, isActive, expiresAt } = req.body;
     if (!code) { res.status(400).json({ error: "ValidationError", message: "Code is required" }); return; }
     const existing = await ctx.conn.db.collection("coupons").findOne({ code: { $regex: `^${code}$`, $options: "i" } });
     if (existing) { res.status(400).json({ error: "DuplicateCoupon", message: "Coupon code already exists" }); return; }
@@ -403,7 +403,6 @@ router.post("/coupons", async (req, res) => {
       isFirstTimeOnly: isFirstTimeOnly === true,
       applicableCategories: Array.isArray(applicableCategories) ? applicableCategories : [],
       applicableProducts: Array.isArray(applicableProducts) ? applicableProducts : [],
-      color: color ?? "",
       isActive: isActive !== false,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -432,7 +431,7 @@ router.put("/coupons/:couponId", async (req, res) => {
     if (!ctx) return;
     const oid = toId(req.params.couponId);
     if (!oid) { res.status(400).json({ error: "InvalidId", message: "Invalid coupon ID" }); return; }
-    const { code, title, description, type, discountValue, minOrderAmount, maxUsage, isFirstTimeOnly, applicableCategories, applicableProducts, color, isActive, expiresAt } = req.body;
+    const { code, title, description, type, discountValue, minOrderAmount, maxUsage, isFirstTimeOnly, applicableCategories, applicableProducts, isActive, expiresAt } = req.body;
     const update: any = { updatedAt: new Date() };
     if (code !== undefined) update.code = code.toUpperCase();
     if (title !== undefined) update.title = title;
@@ -444,7 +443,6 @@ router.put("/coupons/:couponId", async (req, res) => {
     if (isFirstTimeOnly !== undefined) update.isFirstTimeOnly = isFirstTimeOnly;
     if (applicableCategories !== undefined) update.applicableCategories = Array.isArray(applicableCategories) ? applicableCategories : [];
     if (applicableProducts !== undefined) update.applicableProducts = Array.isArray(applicableProducts) ? applicableProducts : [];
-    if (color !== undefined) update.color = color;
     if (isActive !== undefined) update.isActive = isActive;
     if (expiresAt !== undefined) update.expiresAt = expiresAt ? new Date(expiresAt) : null;
     const existing = await ctx.conn.db.collection("coupons").findOne({ _id: oid });
