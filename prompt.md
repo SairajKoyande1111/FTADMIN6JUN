@@ -25,8 +25,7 @@ Each document looks like:
   "isActive": true,
   "applicableCategories": [],
   "applicableProducts": [],
-  "expiresAt": null,
-  "color": ""
+  "expiresAt": null
 }
 ```
 
