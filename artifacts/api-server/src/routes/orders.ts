@@ -71,94 +71,6 @@ async function getOrdersDb() {
   return getSubHubDbConnection(ORDERS_DB);
 }
 
-/**
- * Syncs a timeslot's isActive state based on its orderLimit.
- * - If active non-cancelled order count >= orderLimit → auto-deactivate (limitedByOrders=true)
- * - If count drops below limit AND it was auto-deactivated → auto-reactivate
- * Called after any order create / update / delete that might affect the count.
- */
-async function syncTimeslotOrderLimit(subHubId: string | undefined, timeslotId: string | undefined): Promise<void> {
-  if (!subHubId || !timeslotId) return;
-  try {
-    const subHub = await mongoose.connection.db.collection("sub_hubs").findOne({ _id: toId(subHubId) });
-    if (!subHub?.dbName) return;
-    const subConn = await getSubHubDbConnection(subHub.dbName);
-    const timeslot = await subConn.db.collection("timeslots").findOne({ _id: toId(timeslotId) });
-    if (!timeslot) return;
-    const orderLimit = Number(timeslot.orderLimit) || 0;
-    if (orderLimit <= 0) return;
-    const ordersConn = await getOrdersDb();
-    const activeCount = await ordersConn.db.collection(COLLECTION).countDocuments({
-      subHubId: subHubId,
-      timeslotId: timeslotId,
-      status: { $in: ["pending", "confirmed", "out_for_delivery", "takeaway"] },
-    });
-    const isLimited = activeCount >= orderLimit;
-    const wasLimited = timeslot.limitedByOrders === true;
-    if (isLimited && !wasLimited) {
-      await subConn.db.collection("timeslots").updateOne(
-        { _id: toId(timeslotId) },
-        { $set: { isActive: false, limitedByOrders: true, updatedAt: new Date() } }
-      );
-    } else if (!isLimited && wasLimited) {
-      await subConn.db.collection("timeslots").updateOne(
-        { _id: toId(timeslotId) },
-        { $set: { isActive: true, limitedByOrders: false, updatedAt: new Date() } }
-      );
-    }
-  } catch (_e) {
-    // Non-fatal — timeslot sync should never break order flow
-  }
-}
-
-/**
- * Scans every sub-hub's timeslots and syncs their isActive/limitedByOrders
- * state against current active order counts. Run once at server startup to
- * catch any state that drifted while the server was down.
- */
-export async function syncAllTimeslotOrderLimits(): Promise<void> {
-  try {
-    const subHubs = await mongoose.connection.db.collection("sub_hubs").find({}).toArray();
-    const ordersConn = await getOrdersDb();
-    for (const subHub of subHubs) {
-      if (!subHub.dbName) continue;
-      try {
-        const subConn = await getSubHubDbConnection(subHub.dbName);
-        const timeslots = await subConn.db.collection("timeslots")
-          .find({ orderLimit: { $gt: 0 } })
-          .toArray();
-        for (const timeslot of timeslots) {
-          try {
-            const timeslotId = String(timeslot._id);
-            const subHubId = String(subHub._id);
-            const orderLimit = Number(timeslot.orderLimit) || 0;
-            const activeCount = await ordersConn.db.collection(COLLECTION).countDocuments({
-              subHubId: subHubId,
-              timeslotId: timeslotId,
-              status: { $in: ["pending", "confirmed", "out_for_delivery", "takeaway"] },
-            });
-            const isLimited = activeCount >= orderLimit;
-            const wasLimited = timeslot.limitedByOrders === true;
-            if (isLimited && !wasLimited) {
-              await subConn.db.collection("timeslots").updateOne(
-                { _id: timeslot._id },
-                { $set: { isActive: false, limitedByOrders: true, updatedAt: new Date() } }
-              );
-            } else if (!isLimited && wasLimited) {
-              await subConn.db.collection("timeslots").updateOne(
-                { _id: timeslot._id },
-                { $set: { isActive: true, limitedByOrders: false, updatedAt: new Date() } }
-              );
-            }
-          } catch (_e) { /* skip individual timeslot errors */ }
-        }
-      } catch (_e) { /* skip individual sub-hub errors */ }
-    }
-  } catch (_e) {
-    // Non-fatal
-  }
-}
-
 function toId(id: string): mongoose.mongo.BSON.ObjectId | null {
   try { return new mongoose.mongo.ObjectId(id); } catch { return null; }
 }
@@ -1201,13 +1113,6 @@ router.post("/", async (req: ScopedRequest, res) => {
       req.log.info({ customerId: resolvedCustomerId, orderId, coupons: orderCouponsOnCreate.length }, "Coupon lifecycle: upserted activeCoupons on order create");
     }
 
-    // Sync timeslot order limit after order creation
-    try {
-      await syncTimeslotOrderLimit(orderDoc.subHubId, orderDoc.timeslotId);
-    } catch (e) {
-      req.log.error({ err: e }, "Failed to sync timeslot order limit on create");
-    }
-
     res.status(201).json({ order: { ...orderDoc, _id: result.insertedId } });
   } catch (err) {
     req.log.error({ err }, "Failed to create order");
@@ -1526,19 +1431,6 @@ router.put("/:id", async (req: ScopedRequest, res) => {
       }
     }
 
-    // Sync timeslot order limit — check both old and new timeslot (if it changed)
-    try {
-      const effectiveSubHubId = String((result as any).subHubId ?? prev.subHubId ?? "");
-      const newSlotId = String((result as any).timeslotId ?? "");
-      const prevSlotId = String((prev as any).timeslotId ?? "");
-      await syncTimeslotOrderLimit(effectiveSubHubId, newSlotId || undefined);
-      if (prevSlotId && prevSlotId !== newSlotId) {
-        await syncTimeslotOrderLimit(effectiveSubHubId, prevSlotId);
-      }
-    } catch (e) {
-      req.log.error({ err: e }, "Failed to sync timeslot order limit on update");
-    }
-
     res.json({ order: result });
   } catch (err) {
     req.log.error({ err }, "Failed to update order");
@@ -1614,16 +1506,6 @@ router.delete("/:id", async (req: ScopedRequest, res) => {
       } catch (e) {
         req.log.error({ err: e }, "Failed to clean up coupon on order delete");
       }
-    }
-
-    // Sync timeslot order limit — deleting an order may free up a slot
-    try {
-      await syncTimeslotOrderLimit(
-        String((existing as any).subHubId ?? ""),
-        String((existing as any).timeslotId ?? ""),
-      );
-    } catch (e) {
-      req.log.error({ err: e }, "Failed to sync timeslot order limit on delete");
     }
 
     res.json({ success: true });

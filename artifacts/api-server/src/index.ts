@@ -2,7 +2,6 @@ import app from "./app.js";
 import { logger } from "./lib/logger.js";
 import { connectDB } from "./db/index.js";
 import { runInventoryBackgroundDeduction } from "./routes/inventory.js";
-import { syncAllTimeslotOrderLimits } from "./routes/orders.js";
 
 const rawPort = process.env["PORT"];
 
@@ -24,14 +23,6 @@ connectDB()
         process.exit(1);
       }
       logger.info({ port }, "Server listening");
-
-      // Run once at startup (after 5s) to sync timeslot order limits that may
-      // have drifted while the server was down.
-      setTimeout(() => {
-        syncAllTimeslotOrderLimits().catch((e) =>
-          logger.error({ err: e }, "bg timeslot sync (startup) failed")
-        );
-      }, 5_000);
 
       // Run once at startup (after 15s) to catch any orders that missed deduction
       // while the server was down, then keep polling every 60s.
