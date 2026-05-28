@@ -3,9 +3,8 @@ import { createPortal } from "react-dom";
 import { useParams, useLocation } from "wouter";
 import {
   ArrowLeft, Package, Building2, Lock, ChevronRight,
-  ArrowDownCircle, ArrowUpCircle, SlidersHorizontal,
   Calendar, Clock, Hash, Layers, CheckCircle2, AlertTriangle, XCircle,
-  ShoppingCart, RotateCcw, Wrench, ChevronDown,
+  Activity, ShoppingCart, RotateCcw, Wrench,
 } from "lucide-react";
 
 function getToken() { return localStorage.getItem("fishtokri_token") ?? ""; }
@@ -48,17 +47,9 @@ type Product = {
 type Movement = {
   _id: string;
   type: "order_deduct" | "order_restore" | "adjustment";
-  productId: string;
-  productName: string;
-  unit?: string;
   change: number;
   balance: number;
-  orderId?: string;
-  orderRef?: string;
-  reason?: string;
-  notes?: string;
   createdAt: string;
-  batchId?: string;
 };
 
 type BatchTab = "live" | "expired" | "completed";
@@ -68,10 +59,6 @@ function fmtDate(iso: string | null | undefined) {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "—";
   return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-}
-function fmtDateTime(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 function daysUntil(iso: string | null | undefined) {
   if (!iso) return null;
@@ -101,61 +88,23 @@ function LockedHubBadge({ label, name }: { label: string; name: string }) {
   );
 }
 
-function MovementRow({ m }: { m: Movement }) {
-  const isPositive = m.change >= 0;
-  const meta =
-    m.type === "order_deduct"
-      ? { label: "Order Deduction", icon: <ShoppingCart className="w-3.5 h-3.5" />, tone: "bg-red-50 text-red-700 border-red-200", src: "Website / System Order" }
-      : m.type === "order_restore"
-      ? { label: "Order Restore", icon: <RotateCcw className="w-3.5 h-3.5" />, tone: "bg-emerald-50 text-emerald-700 border-emerald-200", src: "Order Cancellation" }
-      : { label: "Manual Adjustment", icon: <Wrench className="w-3.5 h-3.5" />, tone: "bg-blue-50 text-blue-700 border-blue-200", src: "Admin Adjustment" };
-
-  return (
-    <tr className="hover:bg-gray-50/50 transition-colors">
-      <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{fmtDateTime(m.createdAt)}</td>
-      <td className="px-4 py-3">
-        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold border ${meta.tone}`}>
-          {meta.icon}
-          {meta.label}
-        </span>
-      </td>
-      <td className="px-4 py-3 text-xs text-gray-500">{meta.src}</td>
-      <td className={`px-4 py-3 text-right font-bold text-sm ${isPositive ? "text-emerald-600" : "text-red-600"}`}>
-        {isPositive ? "+" : ""}{m.change}
-      </td>
-      <td className="px-4 py-3 text-right text-gray-700 text-sm font-medium">{m.balance}</td>
-      <td className="px-4 py-3 text-xs text-gray-500 max-w-[200px]">
-        {m.orderRef ? (
-          <span className="font-mono bg-gray-100 px-1.5 py-0.5 rounded text-[11px]">{m.orderRef}</span>
-        ) : m.reason ? (
-          <span>
-            <span className="font-medium text-[#162B4D]">{m.reason}</span>
-            {m.notes && <span className="text-gray-400"> · {m.notes}</span>}
-          </span>
-        ) : <span className="text-gray-300">—</span>}
-      </td>
-    </tr>
-  );
-}
-
 export default function InventoryProductDetail() {
   const params = useParams<{ productId: string }>();
   const [, navigate] = useLocation();
   const productId = params.productId;
 
-  // Parse query params
   const qs = new URLSearchParams(window.location.search);
   const subHubId = qs.get("subHubId") ?? "";
   const superHubId = qs.get("superHubId") ?? "";
   const subHubName = qs.get("subHubName") ?? "Sub Hub";
   const superHubName = qs.get("superHubName") ?? "Super Hub";
+  const productName = qs.get("productName") ?? "";
 
   const [product, setProduct] = useState<Product | null>(null);
   const [movements, setMovements] = useState<Movement[]>([]);
   const [loadingProduct, setLoadingProduct] = useState(true);
   const [loadingMovements, setLoadingMovements] = useState(true);
   const [activeTab, setActiveTab] = useState<BatchTab>("live");
-  const [expandedBatchId, setExpandedBatchId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -181,14 +130,24 @@ export default function InventoryProductDetail() {
   }, [subHubId, productId]);
 
   const allBatches: Batch[] = product?.batches ?? [];
-
   const liveBatches = useMemo(() => allBatches.filter((b) => getBatchStatus(b) === "live"), [allBatches]);
   const expiredBatches = useMemo(() => allBatches.filter((b) => getBatchStatus(b) === "expired"), [allBatches]);
   const completedBatches = useMemo(() => allBatches.filter((b) => getBatchStatus(b) === "completed"), [allBatches]);
-
   const tabBatches = activeTab === "live" ? liveBatches : activeTab === "expired" ? expiredBatches : completedBatches;
 
   const totalLiveQty = liveBatches.reduce((s, b) => s + b.quantity, 0);
+
+  function goToUsage(b?: Batch) {
+    const usageParams = new URLSearchParams({
+      subHubId,
+      superHubId,
+      subHubName,
+      superHubName,
+      productName: product?.name ?? productName,
+      ...(b ? { batchId: b.id, batchNumber: b.batchNumber || "" } : {}),
+    });
+    navigate(`/inventory/products/${productId}/usage?${usageParams.toString()}`);
+  }
 
   // Header portal
   const headerSlot = document.getElementById("page-header-slot");
@@ -204,7 +163,7 @@ export default function InventoryProductDetail() {
         </button>
         <ChevronRight className="w-3 h-3 text-gray-300 flex-shrink-0" />
         <p className="text-sm font-bold text-[#162B4D] truncate">
-          {product?.name ?? qs.get("productName") ?? "Product Detail"}
+          {product?.name ?? productName ?? "Product Detail"}
         </p>
       </div>
       <div className="flex items-center gap-2 flex-shrink-0">
@@ -282,10 +241,15 @@ export default function InventoryProductDetail() {
                   <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Price</p>
                   <p className="text-lg font-bold text-[#162B4D] mt-0.5">₹{product.price}</p>
                 </div>
-                <div className={`rounded-xl p-3 border ${stockTone.replace("text-", "").replace("border-", "border-")}`}
-                  style={{ backgroundColor: product.quantity <= 0 ? "#fef2f2" : product.quantity < 5 ? "#fffbeb" : "#f0fdf4" }}>
+                <div className="rounded-xl p-3 border"
+                  style={{
+                    backgroundColor: product.quantity <= 0 ? "#fef2f2" : product.quantity < 5 ? "#fffbeb" : "#f0fdf4",
+                    borderColor: product.quantity <= 0 ? "#fecaca" : product.quantity < 5 ? "#fde68a" : "#bbf7d0",
+                  }}>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Live Stock</p>
-                  <p className="text-lg font-bold text-[#162B4D] mt-0.5">{totalLiveQty} <span className="text-xs font-normal text-gray-400">{product.unit}</span></p>
+                  <p className="text-lg font-bold text-[#162B4D] mt-0.5">
+                    {totalLiveQty} <span className="text-xs font-normal text-gray-400">{product.unit}</span>
+                  </p>
                 </div>
                 <div className="bg-gray-50 rounded-xl p-3">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Stock Value</p>
@@ -299,6 +263,46 @@ export default function InventoryProductDetail() {
             </div>
           </div>
         </div>
+
+        {/* Usage History Quick-link banner */}
+        <button
+          onClick={() => goToUsage()}
+          className="w-full bg-gradient-to-r from-[#F05B4E]/5 to-[#364F9F]/5 border border-[#364F9F]/15 hover:border-[#364F9F]/30 rounded-2xl p-4 flex items-center justify-between group transition-all"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-[#162B4D]/5 flex items-center justify-center flex-shrink-0">
+              <Activity className="w-4.5 h-4.5 text-[#162B4D]" />
+            </div>
+            <div className="text-left">
+              <p className="text-sm font-bold text-[#162B4D]">View Full Usage History</p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {loadingMovements ? "Loading..." : `${movements.length} total movements — order deductions, restores, and manual adjustments`}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 flex-shrink-0">
+            {!loadingMovements && (
+              <div className="hidden sm:flex items-center gap-3 text-xs text-gray-500">
+                <span className="flex items-center gap-1 text-red-500">
+                  <ShoppingCart className="w-3.5 h-3.5" />
+                  {movements.filter((m) => m.type === "order_deduct").length}
+                </span>
+                <span className="flex items-center gap-1 text-emerald-600">
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  {movements.filter((m) => m.type === "order_restore").length}
+                </span>
+                <span className="flex items-center gap-1 text-blue-600">
+                  <Wrench className="w-3.5 h-3.5" />
+                  {movements.filter((m) => m.type === "adjustment").length}
+                </span>
+              </div>
+            )}
+            <div className="flex items-center gap-1 text-[#1A56DB] text-sm font-semibold group-hover:gap-2 transition-all">
+              Open Usage Log
+              <ChevronRight className="w-4 h-4" />
+            </div>
+          </div>
+        </button>
 
         {/* Batches Section */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -338,9 +342,9 @@ export default function InventoryProductDetail() {
           {/* Tab description */}
           <div className="px-6 py-3 bg-gray-50/50 border-b border-gray-100">
             <p className="text-xs text-gray-400">
-              {activeTab === "live" && "Batches with remaining stock and not yet expired. These are available for orders."}
-              {activeTab === "expired" && "Batches that have passed their expiry date. These are not available for new orders."}
-              {activeTab === "completed" && "Batches where all stock has been fully consumed (quantity = 0)."}
+              {activeTab === "live" && "Batches with remaining stock and valid expiry. These are available for orders."}
+              {activeTab === "expired" && "Batches that have passed their expiry date and still have remaining stock."}
+              {activeTab === "completed" && "Batches fully consumed — all stock has been used or adjusted to zero."}
             </p>
           </div>
 
@@ -349,7 +353,6 @@ export default function InventoryProductDetail() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-10"></th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Batch #</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Quantity</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Received</th>
@@ -357,6 +360,7 @@ export default function InventoryProductDetail() {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Shelf Life</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Notes</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Usage</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -369,7 +373,6 @@ export default function InventoryProductDetail() {
                 ) : tabBatches.map((b) => {
                   const status = getBatchStatus(b);
                   const dl = daysUntil(b.expiryDate);
-                  const isExpanded = expandedBatchId === b.id;
 
                   const statusEl =
                     status === "live"
@@ -392,18 +395,8 @@ export default function InventoryProductDetail() {
                           Consumed
                         </span>;
 
-                  // Get movements for this product (batch-level tracking not stored, show all product movements)
-                  const batchMovements = movements; // all product movements
-
-                  return [
-                    <tr
-                      key={b.id}
-                      className={`hover:bg-blue-50/20 cursor-pointer transition-colors ${isExpanded ? "bg-blue-50/10" : ""}`}
-                      onClick={() => setExpandedBatchId(isExpanded ? null : b.id)}
-                    >
-                      <td className="px-4 py-3 text-center">
-                        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
-                      </td>
+                  return (
+                    <tr key={b.id} className="hover:bg-gray-50/40 transition-colors">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <div className="w-7 h-7 rounded-lg bg-[#364F9F]/10 flex items-center justify-center flex-shrink-0">
@@ -449,103 +442,33 @@ export default function InventoryProductDetail() {
                         ) : <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-4 py-3">{statusEl}</td>
-                      <td className="px-4 py-3 text-xs text-gray-400 max-w-[150px] truncate">
+                      <td className="px-4 py-3 text-xs text-gray-400 max-w-[140px] truncate">
                         {b.notes || <span className="text-gray-200">—</span>}
                       </td>
-                    </tr>,
-
-                    isExpanded && (
-                      <tr key={`${b.id}-detail`} className="bg-blue-50/10">
-                        <td colSpan={8} className="px-0 py-0">
-                          <div className="border-t border-blue-100 bg-blue-50/20">
-                            {/* Batch detail header */}
-                            <div className="px-6 py-3 border-b border-blue-100 flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <ArrowDownCircle className="w-4 h-4 text-[#1A56DB]" />
-                                <p className="text-xs font-bold text-[#162B4D] uppercase tracking-wider">
-                                  Usage Detail — {b.batchNumber || "This Batch"}
-                                </p>
-                                <span className="text-[10px] text-gray-400">(all stock movements for this product)</span>
-                              </div>
-                              <div className="flex items-center gap-3 text-xs text-gray-500">
-                                <span className="flex items-center gap-1">
-                                  <ShoppingCart className="w-3 h-3 text-red-400" />
-                                  {batchMovements.filter((m) => m.type === "order_deduct").length} order deductions
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <RotateCcw className="w-3 h-3 text-emerald-400" />
-                                  {batchMovements.filter((m) => m.type === "order_restore").length} restores
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <Wrench className="w-3 h-3 text-blue-400" />
-                                  {batchMovements.filter((m) => m.type === "adjustment").length} adjustments
-                                </span>
-                              </div>
-                            </div>
-
-                            {loadingMovements ? (
-                              <div className="px-6 py-6 text-center text-xs text-gray-400">Loading usage history...</div>
-                            ) : batchMovements.length === 0 ? (
-                              <div className="px-6 py-6 text-center text-xs text-gray-400">No movements recorded for this product yet.</div>
-                            ) : (
-                              <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                  <thead>
-                                    <tr className="border-b border-blue-100 bg-blue-50/40">
-                                      <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest text-gray-400">Date & Time</th>
-                                      <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest text-gray-400">Event Type</th>
-                                      <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest text-gray-400">Source</th>
-                                      <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-widest text-gray-400">Change</th>
-                                      <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-widest text-gray-400">Balance After</th>
-                                      <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest text-gray-400">Reference / Reason</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-blue-50">
-                                    {batchMovements.slice(0, 50).map((m) => (
-                                      <MovementRow key={m._id} m={m} />
-                                    ))}
-                                  </tbody>
-                                </table>
-                                {batchMovements.length > 50 && (
-                                  <div className="px-4 py-2 text-center text-xs text-gray-400 border-t border-blue-100">
-                                    Showing latest 50 of {batchMovements.length} movements. Go to Inventory History for full log.
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  ];
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => goToUsage(b)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#162B4D]/5 text-[#162B4D] hover:bg-[#1A56DB] hover:text-white transition-all border border-transparent hover:border-[#1A56DB]"
+                        >
+                          <Activity className="w-3 h-3" />
+                          Usage
+                          <ChevronRight className="w-3 h-3" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
                 })}
               </tbody>
             </table>
           </div>
         </div>
 
-        {/* Summary stats for this product */}
+        {/* Movement summary stat cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <SummaryCard
-            label="Total Movements"
-            value={movements.length}
-            icon={<SlidersHorizontal className="w-4 h-4 text-blue-400" />}
-          />
-          <SummaryCard
-            label="Order Deductions"
-            value={movements.filter((m) => m.type === "order_deduct").length}
-            icon={<ArrowDownCircle className="w-4 h-4 text-red-400" />}
-          />
-          <SummaryCard
-            label="Order Restores"
-            value={movements.filter((m) => m.type === "order_restore").length}
-            icon={<ArrowUpCircle className="w-4 h-4 text-emerald-400" />}
-          />
-          <SummaryCard
-            label="Manual Adjustments"
-            value={movements.filter((m) => m.type === "adjustment").length}
-            icon={<Wrench className="w-4 h-4 text-blue-400" />}
-          />
+          <SummaryCard label="Total Movements" value={movements.length} icon={<Activity className="w-4 h-4 text-gray-400" />} />
+          <SummaryCard label="Order Deductions" value={movements.filter((m) => m.type === "order_deduct").length} icon={<ShoppingCart className="w-4 h-4 text-red-400" />} />
+          <SummaryCard label="Order Restores" value={movements.filter((m) => m.type === "order_restore").length} icon={<RotateCcw className="w-4 h-4 text-emerald-400" />} />
+          <SummaryCard label="Manual Adjustments" value={movements.filter((m) => m.type === "adjustment").length} icon={<Wrench className="w-4 h-4 text-blue-400" />} />
         </div>
       </div>
     </>
@@ -555,22 +478,14 @@ export default function InventoryProductDetail() {
 function TabButton({
   active, onClick, count, icon, label, activeColor, countColor,
 }: {
-  active: boolean;
-  onClick: () => void;
-  count: number;
-  icon: React.ReactNode;
-  label: string;
-  activeColor: string;
-  countColor: string;
+  active: boolean; onClick: () => void; count: number; icon: React.ReactNode;
+  label: string; activeColor: string; countColor: string;
 }) {
   return (
     <button
       onClick={onClick}
       className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-all -mb-px
-        ${active
-          ? `${activeColor} bg-transparent`
-          : "text-gray-400 border-transparent hover:text-gray-600 hover:border-gray-200"
-        }`}
+        ${active ? `${activeColor} bg-transparent` : "text-gray-400 border-transparent hover:text-gray-600 hover:border-gray-200"}`}
     >
       {icon}
       {label}

@@ -133,8 +133,9 @@ function consumeBatches(batches: Batch[], qty: number, now: Date = new Date()): 
     remaining -= take;
   }
 
-  // Drop emptied active batches; keep expired batches as-is
-  const result = [...expired, ...sorted.filter((b) => b.quantity > 0)];
+  // Keep ALL batches — including emptied ones (quantity=0) so they appear in
+  // the "Completed Batches" tab in the admin UI.  Expired batches are always kept.
+  const result = [...expired, ...sorted];
   return { batches: result, remaining };
 }
 
