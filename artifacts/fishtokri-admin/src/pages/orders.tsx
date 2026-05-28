@@ -334,13 +334,10 @@ function InvoiceModal({ order, onClose }: { order: any; onClose: () => void }) {
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial, sans-serif; color: #111; background: #fff; }
-        @media print {
-          body { margin: 0; }
-          @page { margin: 16mm 12mm; size: A5 portrait; }
-        }
+        @page { margin: 8mm 10mm; }
       </style>
     </head><body>
-      <div style="max-width:400px;margin:24px auto;padding:20px;font-size:13px;color:#111;">
+      <div style="padding:4px 8px;font-size:13px;color:#111;">
 
         <h2 style="text-align:center;font-size:16px;font-weight:700;margin-bottom:2px;">
           Fishtokri${order.superHubName ? ` - ${order.superHubName}` : ""}
