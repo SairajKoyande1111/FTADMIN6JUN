@@ -227,12 +227,27 @@ async function enrichCustomers(customers: any[], log?: any) {
     log?.warn?.({ err }, "Could not enrich customers with live orders");
   }
 
+  // Build a set of all live order IDs (full string of MongoDB _id).
+  // Used to detect stale stored refs for orders that no longer exist in the DB.
+  const liveOrderIdSet = new Set(liveOrders.map((o) => String(o._id)));
+
   return customers.map((customer) => {
     const linkedOrders = liveOrders.filter((order) => matchesCustomer(order, customer));
     // Live orders come FIRST so their full data (status, orderNumber, discount, etc.)
     // wins deduplication over the minimal stored refs in customer.orders.
     const storedRefs = Array.isArray(customer.orders) ? customer.orders : [];
-    const combined = [...linkedOrders, ...storedRefs];
+
+    // Drop stale active stored refs — a stored ref that claims to be "active" but
+    // whose ID is not present in liveOrders means the order was deleted from the DB
+    // without the ref being cleaned up. Keeping it would show a ghost active order.
+    // Historical (non-active) refs are kept as-is for order-history display.
+    const validStoredRefs = storedRefs.filter((ref) => {
+      if (!ACTIVE_ORDER_STATUSES.has(normalize(ref.status))) return true; // keep history
+      const refId = getOrderId(ref);
+      return refId ? liveOrderIdSet.has(refId) : false;
+    });
+
+    const combined = [...linkedOrders, ...validStoredRefs];
     const seen = new Set<string>();
     const orders = combined.filter((order) => {
       const id = getOrderId(order);
