@@ -30,6 +30,7 @@ app.use(
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(express.text());
 
 app.use("/api", router);
 

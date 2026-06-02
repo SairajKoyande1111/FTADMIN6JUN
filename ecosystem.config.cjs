@@ -16,6 +16,8 @@ module.exports = {
         CLOUDINARY_CLOUD_NAME: "dbkmmxnzd",
         CLOUDINARY_API_KEY: "935594792745712",
         CLOUDINARY_API_SECRET: "ouFPGE7SlNoQAG_OR7IT5sdFiiU",
+        QZ_PRIVATE_KEY: process.env.QZ_PRIVATE_KEY,
+        QZ_CERTIFICATE: process.env.QZ_CERTIFICATE,
       },
     },
   ],
