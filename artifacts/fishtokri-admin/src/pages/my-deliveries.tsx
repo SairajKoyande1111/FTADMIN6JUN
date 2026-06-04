@@ -437,7 +437,7 @@ function OrdersList({ mode, refreshKey, silentRefreshKey, onCountChange }: { mod
   const [detail, setDetail] = useState<any>(null);
   const [deliverPayOpen, setDeliverPayOpen] = useState(false);
   const [pendingDeliverOrder, setPendingDeliverOrder] = useState<any>(null);
-  const [deliverPayStatus, setDeliverPayStatus] = useState<"unpaid" | "partial" | "paid">("paid");
+  const [deliverPayStatus, setDeliverPayStatus] = useState<"unpaid" | "paid">("paid");
   const [deliverPayEntries, setDeliverPayEntries] = useState<{ mode: string; amount: string; reference: string }[]>([]);
 
   // Close filter dropdown on outside click
@@ -539,10 +539,7 @@ function OrdersList({ mode, refreshKey, silentRefreshKey, onCountChange }: { mod
       toast({ title: "Payment mismatch", description: `Total collected (${formatRupees(totalCollected)}) is less than order total (${formatRupees(orderTotalAmount)}).`, variant: "destructive" });
       return;
     }
-    if (deliverPayStatus === "partial" && (totalCollected <= existingPaid || totalCollected >= orderTotalAmount)) {
-      toast({ title: "Invalid partial payment", description: `Paid amount must be between ₹0 and ${formatRupees(orderTotalAmount)}.`, variant: "destructive" });
-      return;
-    }
+
 
     const newEntries = deliverPayStatus === "unpaid"
       ? []
@@ -564,7 +561,7 @@ function OrdersList({ mode, refreshKey, silentRefreshKey, onCountChange }: { mod
       };
       const orderForPayment = pendingDeliverOrder || selectedOrder;
       await apiFetch(`/api/orders/${orderForPayment._id}`, { method: "PUT", body: JSON.stringify(payload) });
-      toast({ title: "Marked as delivered", description: deliverPayStatus === "paid" ? "Payment recorded." : deliverPayStatus === "partial" ? "Partial payment recorded." : "No payment recorded." });
+      toast({ title: "Marked as delivered", description: deliverPayStatus === "paid" ? "Payment recorded." : "No payment recorded." });
       setDeliverPayOpen(false);
       setPendingDeliverOrder(null);
       setSelectedOrder(null);
@@ -925,11 +922,10 @@ function OrdersList({ mode, refreshKey, silentRefreshKey, onCountChange }: { mod
                 {/* Payment Status */}
                 <div>
                   <p className="text-[11px] font-bold text-black uppercase tracking-widest mb-3">Payment Status</p>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     {([
-                      { v: "unpaid",  label: "Unpaid",     bg: "#F59E0B" },
-                      { v: "partial", label: "Partial",    bg: "#3B82F6" },
-                      { v: "paid",    label: "Fully Paid", bg: "#10B981" },
+                      { v: "unpaid", label: "Unpaid",     bg: "#F59E0B" },
+                      { v: "paid",   label: "Fully Paid", bg: "#10B981" },
                     ] as const).map((opt) => {
                       const active = deliverPayStatus === opt.v;
                       return (
@@ -942,7 +938,7 @@ function OrdersList({ mode, refreshKey, silentRefreshKey, onCountChange }: { mod
                               setDeliverPayEntries([]);
                             } else if (deliverPayEntries.length === 0) {
                               setDeliverPayEntries([
-                                { mode: "cash", amount: opt.v === "paid" ? String(remainingDue) : "", reference: "" },
+                                { mode: "cash", amount: String(remainingDue), reference: "" },
                               ]);
                             } else if (opt.v === "paid") {
                               setDeliverPayEntries((arr) =>

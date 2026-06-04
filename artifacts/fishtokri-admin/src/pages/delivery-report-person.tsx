@@ -5,7 +5,7 @@ import {
   ArrowLeft, Truck, Package, Banknote, CreditCard, Wallet, RefreshCw,
   Search, X, Edit2, ToggleLeft, ToggleRight, TrendingUp,
   IndianRupee, AlertCircle, CheckCircle2, Phone, Mail,
-  MapPin, Calendar, Hash, ChevronDown, ChevronUp,
+  MapPin, Calendar, Hash,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,11 +76,9 @@ function StatCard({
   );
 }
 
-// ── Order card (mobile-first, Poppins, black text) ──────────────────────────
+// ── Order card (mobile-first, Poppins, black text, no dropdown) ─────────────
 function OrderCard({ order }: { order: any }) {
-  const [expanded, setExpanded] = useState(false);
-
-  const orderId = order.orderId || ("#" + String(order.id || "").slice(-6).toUpperCase());
+  const orderId = order.orderNumber ? `#${order.orderNumber}` : ("#" + String(order.id || "").slice(-6).toUpperCase());
 
   const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
     delivered: { bg: "bg-green-500", text: "text-white", label: "Delivered" },
@@ -97,110 +95,53 @@ function OrderCard({ order }: { order: any }) {
   const ps = PAY_STYLES[order.paymentStatus ?? ""] ?? { bg: "bg-black/10", text: "text-black" };
 
   return (
-    <div className="bg-white rounded-2xl border border-black/8 shadow-sm overflow-hidden" style={{ fontFamily: FONT }}>
-      {/* Main row */}
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-bold text-black/40 tracking-wide mb-0.5">{orderId}</p>
-            <p className="text-[17px] font-bold text-black leading-tight">{order.customerName || "—"}</p>
-            {order.phone && (
-              <p className="text-[13px] font-medium text-black/50 mt-0.5">{order.phone}</p>
-            )}
-          </div>
-          <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-            <span className={`text-[11px] font-bold px-2.5 py-1 rounded-lg ${ss.bg} ${ss.text}`}>
-              {ss.label}
-            </span>
-            {order.paymentStatus && (
-              <span className={`text-[11px] font-bold px-2.5 py-1 rounded-lg ${ps.bg} ${ps.text}`}>
-                {order.paymentStatus}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Meta row */}
-        <div className="flex items-center gap-4 mt-3">
-          {order.createdAt && (
-            <span className="flex items-center gap-1.5 text-[12px] font-semibold text-black/50">
-              <Calendar className="w-3.5 h-3.5" />
-              {formatDate(order.createdAt)}
-            </span>
-          )}
-          {(order.deliveryArea || order.subHubName) && (
-            <span className="flex items-center gap-1.5 text-[12px] font-semibold text-black/50 truncate">
-              <Hash className="w-3.5 h-3.5 flex-shrink-0" />
-              {order.deliveryArea || order.subHubName}
-            </span>
+    <div className="bg-white rounded-2xl border border-black/8 shadow-sm p-4" style={{ fontFamily: FONT }}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-bold text-black/40 tracking-wide mb-0.5">{orderId}</p>
+          <p className="text-[17px] font-bold text-black leading-tight">{order.customerName || "—"}</p>
+          {order.phone && (
+            <p className="text-[13px] font-medium text-black/50 mt-0.5">{order.phone}</p>
           )}
         </div>
-
-        {/* Payment + Total */}
-        <div className="flex items-center justify-between mt-3 pt-3 border-t border-black/6">
-          <div className="flex flex-wrap gap-1.5">
-            {Array.isArray(order.payments) && order.payments.length > 0
-              ? order.payments.map((p: any, i: number) => <ModeTag key={i} mode={p.mode} amount={p.amount} />)
-              : <span className="text-[12px] font-medium text-black/30">No payments</span>
-            }
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[17px] font-bold text-black">{formatRupees(order.total ?? 0)}</span>
-            <button
-              onClick={() => setExpanded(v => !v)}
-              className="w-7 h-7 rounded-full bg-black/5 flex items-center justify-center hover:bg-black/10 transition-colors"
-            >
-              {expanded
-                ? <ChevronUp className="w-4 h-4 text-black/60" />
-                : <ChevronDown className="w-4 h-4 text-black/60" />
-              }
-            </button>
-          </div>
+        <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+          <span className={`text-[11px] font-bold px-2.5 py-1 rounded-lg ${ss.bg} ${ss.text}`}>
+            {ss.label}
+          </span>
+          {order.paymentStatus && (
+            <span className={`text-[11px] font-bold px-2.5 py-1 rounded-lg ${ps.bg} ${ps.text}`}>
+              {order.paymentStatus}
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Expanded detail */}
-      {expanded && (
-        <div className="border-t border-black/6 bg-black/[0.02] px-4 py-3 grid grid-cols-2 gap-x-4 gap-y-3">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-black/30 mb-0.5">Date & Time</p>
-            <p className="text-[13px] font-semibold text-black">{formatDateTime(order.createdAt)}</p>
-          </div>
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-black/30 mb-0.5">Order Total</p>
-            <p className="text-[13px] font-bold text-black">{formatRupees(order.total)}</p>
-          </div>
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest text-black/30 mb-0.5">Paid</p>
-            <p className="text-[13px] font-bold text-green-600">{formatRupees(order.paidAmount ?? 0)}</p>
-          </div>
-          {(order.dueAmount || 0) > 0 && (
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-black/30 mb-0.5">Due</p>
-              <p className="text-[13px] font-bold text-red-500">{formatRupees(order.dueAmount ?? 0)}</p>
-            </div>
-          )}
-          {(order.deliveryArea || order.subHubName) && (
-            <div className="col-span-2">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-black/30 mb-0.5">Hub / Area</p>
-              <p className="text-[13px] font-semibold text-black">{order.deliveryArea || order.subHubName}</p>
-            </div>
-          )}
-          {Array.isArray(order.payments) && order.payments.length > 0 && (
-            <div className="col-span-2">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-black/30 mb-1.5">Payment Breakdown</p>
-              <div className="flex flex-wrap gap-1.5">
-                {order.payments.map((p: any, i: number) => (
-                  <div key={i} className="flex flex-col">
-                    <ModeTag mode={p.mode} amount={p.amount} />
-                    {p.reference && <span className="text-[10px] text-black/30 mt-0.5 ml-1">Ref: {p.reference}</span>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+      {/* Meta row */}
+      <div className="flex items-center gap-4 mt-3">
+        {order.createdAt && (
+          <span className="flex items-center gap-1.5 text-[12px] font-semibold text-black/50">
+            <Calendar className="w-3.5 h-3.5" />
+            {formatDate(order.createdAt)}
+          </span>
+        )}
+        {(order.deliveryArea || order.subHubName) && (
+          <span className="flex items-center gap-1.5 text-[12px] font-semibold text-black/50 truncate">
+            <Hash className="w-3.5 h-3.5 flex-shrink-0" />
+            {order.deliveryArea || order.subHubName}
+          </span>
+        )}
+      </div>
+
+      {/* Payment tags + Total */}
+      <div className="flex items-center justify-between mt-3 pt-3 border-t border-black/6">
+        <div className="flex flex-wrap gap-1.5">
+          {Array.isArray(order.payments) && order.payments.length > 0
+            ? order.payments.map((p: any, i: number) => <ModeTag key={i} mode={p.mode} amount={p.amount} />)
+            : <span className="text-[12px] font-medium text-black/30">No payments</span>
+          }
         </div>
-      )}
+        <span className="text-[17px] font-bold text-black ml-2">{formatRupees(order.total ?? 0)}</span>
+      </div>
     </div>
   );
 }
@@ -287,7 +228,6 @@ export default function DeliveryReportPersonPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [modeFilter, setModeFilter] = useState("all");
-  const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
   const [activeTab, setActiveTab] = useState<"overview" | "orders">("overview");
   const [editOpen, setEditOpen] = useState(false);
   const [confirmToggle, setConfirmToggle] = useState(false);
@@ -348,18 +288,13 @@ export default function DeliveryReportPersonPage() {
             (o.phone || "").includes(q) ||
             (o.deliveryArea || "").toLowerCase().includes(q) ||
             String(o.orderNumber || "").includes(q) ||
-            (o.orderId || "").toLowerCase().includes(q) ||
             (o.id || "").slice(-6).toLowerCase().includes(q)
           );
         }
         return true;
       })
-      .sort((a, b) => {
-        const ta = new Date(a.createdAt).getTime();
-        const tb = new Date(b.createdAt).getTime();
-        return sortDir === "desc" ? tb - ta : ta - tb;
-      });
-  }, [orders, search, statusFilter, modeFilter, sortDir]);
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [orders, search, statusFilter, modeFilter]);
 
   const modeBreakdown = Object.entries(summary.byMode || {}) as [string, { count: number; amount: number }][];
   const totalPct = (amount: number) =>
@@ -479,13 +414,6 @@ export default function DeliveryReportPersonPage() {
                 {tab === "overview" ? "Overview" : `Orders (${orders.length})`}
               </button>
             ))}
-            <button
-              onClick={() => refetch()}
-              disabled={isFetching}
-              className="flex items-center justify-center w-10 rounded-xl text-black/30 hover:text-black/60 disabled:opacity-30 transition-colors"
-            >
-              <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
-            </button>
           </div>
 
           {/* ── Overview tab ───────────────────────────────────────────────── */}
@@ -659,20 +587,10 @@ export default function DeliveryReportPersonPage() {
                   </select>
                 </div>
 
-                {/* Sort + count */}
-                <div className="flex items-center justify-between">
-                  <button
-                    onClick={() => setSortDir((v) => v === "desc" ? "asc" : "desc")}
-                    className="h-9 flex items-center gap-2 border border-black/10 rounded-xl px-3 text-[13px] font-semibold text-black bg-white hover:bg-black/[0.03] transition-colors"
-                    style={{ fontFamily: FONT }}
-                  >
-                    <Calendar className="w-3.5 h-3.5 text-black/40" />
-                    {sortDir === "desc" ? "Newest first" : "Oldest first"}
-                  </button>
-                  <p className="text-[12px] font-semibold text-black/40">
-                    {filteredOrders.length} of {orders.length} orders
-                  </p>
-                </div>
+                {/* Count */}
+                <p className="text-[12px] font-semibold text-black/40 text-right">
+                  {filteredOrders.length} of {orders.length} orders
+                </p>
               </div>
 
               {/* Order cards */}
